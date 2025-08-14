@@ -25,7 +25,7 @@ develocity {
     }
 }
 
-rootProject.name = "kotlin-gradle-plugin-template"
+rootProject.name = "GradleComposeDesktopLinuxDeps"
 
 include(":example")
 includeBuild("plugin-build")
