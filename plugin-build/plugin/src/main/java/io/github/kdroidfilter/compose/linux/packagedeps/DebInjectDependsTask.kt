@@ -7,9 +7,14 @@ import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputDirectory
 import org.gradle.api.tasks.TaskAction
+import org.gradle.process.ExecOperations
 import java.io.File
+import javax.inject.Inject
 
 abstract class DebInjectDependsTask : DefaultTask() {
+    @get:Inject
+    protected abstract val execOperations: ExecOperations
+
     init {
         description = "Inject Debian Depends into jpackage-generated .deb files"
         group = "distribution"
@@ -27,7 +32,7 @@ abstract class DebInjectDependsTask : DefaultTask() {
     @TaskAction
     fun injectDepends() {
         // 0) Check tool availability
-        val check = project.exec { execSpec ->
+        val check = execOperations.exec { execSpec ->
             execSpec.isIgnoreExitValue = true
             execSpec.commandLine("bash", "-lc", "command -v dpkg-deb >/dev/null 2>&1")
         }
@@ -48,8 +53,8 @@ abstract class DebInjectDependsTask : DefaultTask() {
             ?: error("No .deb file found in ${debDirFile.absolutePath} — run first: ./gradlew packageDeb")
 
         // 2) Extract
-        val workDir = File(project.buildDir, "deb-edit").apply { deleteRecursively(); mkdirs() }
-        project.exec { execSpec -> execSpec.commandLine("dpkg-deb", "-R", debFile.absolutePath, workDir.absolutePath) }
+        val workDir = project.layout.buildDirectory.dir("deb-edit").get().asFile.apply { deleteRecursively(); mkdirs() }
+        execOperations.exec { execSpec -> execSpec.commandLine("dpkg-deb", "-R", debFile.absolutePath, workDir.absolutePath) }
 
         // 3) Modify control (Depends)
         if (deps.isNotEmpty()) {
@@ -108,7 +113,22 @@ abstract class DebInjectDependsTask : DefaultTask() {
         }
 
         // 5) Repack (overwrite original)
-        project.exec { execSpec -> execSpec.commandLine("dpkg-deb", "-Zxz", "-b", workDir.absolutePath, debFile.absolutePath) }
+        // Prefer rootless builds to avoid ownership warnings: use --root-owner-group when available
+        val supportsRootOwnerGroup = execOperations.exec { execSpec ->
+            execSpec.isIgnoreExitValue = true
+            execSpec.commandLine("bash", "-lc", "dpkg-deb --help | grep -q -- --root-owner-group")
+        }.exitValue == 0
+
+        val cmd = mutableListOf("dpkg-deb", "-Zxz", "-b")
+        if (supportsRootOwnerGroup) {
+            cmd.add("--root-owner-group")
+            logger.info("dpkg-deb supports --root-owner-group; enabling rootless build ownership normalization")
+        } else {
+            logger.info("dpkg-deb does not support --root-owner-group; proceeding without it")
+        }
+        cmd.add(workDir.absolutePath)
+        cmd.add(debFile.absolutePath)
+        execOperations.exec { execSpec -> execSpec.commandLine(cmd) }
         logger.lifecycle("✅ Repacked ${debFile.name} with updated metadata")
     }
 }

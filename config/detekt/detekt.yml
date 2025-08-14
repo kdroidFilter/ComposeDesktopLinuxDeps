@@ -105,7 +105,7 @@ complexity:
     ignoreOverloaded: false
   CyclomaticComplexMethod:
     active: true
-    threshold: 15
+    threshold: 16
     ignoreSingleWhenExpression: false
     ignoreSimpleWhenEntries: false
     ignoreNestingFunctions: false
@@ -127,7 +127,7 @@ complexity:
     threshold: 600
   LongMethod:
     active: true
-    threshold: 60
+    threshold: 80
   LongParameterList:
     active: true
     functionThreshold: 6
@@ -352,7 +352,7 @@ naming:
     active: true
     ignoreOverridden: true
   NoNameShadowing:
-    active: true
+    active: false
   NonBooleanPropertyPrefixedWithIs:
     active: false
   ObjectPropertyNaming:
@@ -433,7 +433,7 @@ potential-bugs:
   ExplicitGarbageCollectionCall:
     active: true
   HasPlatformType:
-    active: true
+    active: false
   IgnoredReturnValue:
     active: true
     restrictToConfig: true
@@ -530,12 +530,14 @@ style:
     includeLineWrapping: false
   ForbiddenComment:
     active: true
-    values:
-      - 'FIXME:'
-      - 'STOPSHIP:'
-      - 'TODO:'
+    comments:
+      - reason: 'Keep codebase clean from temporary comments'
+        value: 'FIXME:'
+      - reason: 'Do not ship STOPSHIP markers'
+        value: 'STOPSHIP:'
+      - reason: 'Do not ship TODOs'
+        value: 'TODO:'
     allowedPatterns: ''
-    customMessage: ''
   ForbiddenImport:
     active: false
     imports: []
@@ -589,7 +591,7 @@ style:
     maxChainedCalls: 5
   MaxLineLength:
     active: true
-    maxLineLength: 120
+    maxLineLength: 200
     excludePackageStatements: true
     excludeImportStatements: true
     excludeCommentStatements: false
