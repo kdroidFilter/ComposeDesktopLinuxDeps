@@ -13,6 +13,8 @@ Many Compose Desktop apps require system libraries at runtime (for example, Qt o
   - `packageDeb` -> edits `.deb` in `build/compose/binaries/main/deb`.
   - `packageReleaseDeb` -> edits `.deb` in `build/compose/binaries/main-release/deb`.
 - Merges with existing `Depends:` if present (de-duplicates entries).
+- Fixes Linux dock/taskbar icon matching by ensuring the generated `.desktop` file contains `StartupWMClass`.
+- New setting: `startupWMClass` lets you control which WM class is written (defaults to `MainClassKt`).
 
 ## Requirements
 - A Debian/Ubuntu-like environment with `dpkg-deb` installed:
@@ -39,6 +41,8 @@ plugins {
 
 linuxDebConfig {
     debDepends.set(listOf("libqt5widgets5t64"))
+    // Optional: ensure correct dock icon matching on Linux
+    startupWMClass.set("MainClassKt")
 }
 ```
 
@@ -51,6 +55,10 @@ When the plugin is published, simply apply it by id and set the version, then co
 - `debDirectory: Directory`
   - Directory where `.deb` files are generated for the `packageDeb` variant. Defaults to `build/compose/binaries/main/deb`.
   - Note: For `packageReleaseDeb`, the plugin automatically uses `build/compose/binaries/main-release/deb` regardless of `debDirectory`.
+- `startupWMClass: String`
+  - The value to write into the generated `.desktop` file(s) as `StartupWMClass`. Defaults to `MainClassKt` (which matches a top-level `fun main()` in `MainClass.kt`).
+  - Note: For compatibility, the plugin replaces any `.` with `-` before writing the value (e.g., `com.example.App` becomes `com-example-App`).
+  - Tip: If your dock icon doesn’t show correctly on GNOME/KDE, set this to your app’s window class.
 - `packageTaskNames: List<String>`
   - Names of packaging tasks to consider. Defaults to `listOf("packageDeb", "packageReleaseDeb")`. The plugin wires itself to these tasks automatically.
 
@@ -74,6 +82,10 @@ linuxDebConfig {
         "libqt5widgets5t64",
         "libx11-6"
     ))
+
+    // Optional: Set WM class to ensure dock icon matches your running window
+    // Default is "MainClassKt" (top-level main function in MainClass.kt)
+    startupWMClass.set("YourMainClassName")
 }
 ```
 Run your packaging task as usual:
@@ -90,7 +102,12 @@ The plugin will then inject/merge the `Depends:` line into the newly created `.d
 3. Edits the `DEBIAN/control` file:
    - If `Depends:` exists, merges your list with existing ones (deduplicated).
    - Otherwise, appends a new `Depends:` line.
-4. Rebuilds the `.deb` with `dpkg-deb -Zxz -b`, replacing the original file.
+4. Finds all `.desktop` files inside the extracted package (recursively; often under `lib/` for Compose apps) and ensures they contain the desired `StartupWMClass`:
+   - Replaces an existing `StartupWMClass=...` line, or
+   - Inserts `StartupWMClass=...` right after the `[Desktop Entry]` header, or
+   - Appends it at the end if no header is present.
+   - This update runs even if `debDepends` is empty, so you can use the plugin solely to fix the dock icon.
+5. Rebuilds the `.deb` with `dpkg-deb -Zxz -b`, replacing the original file.
 
 ## Troubleshooting
 - Error: `dpkg-deb is required (Debian/Ubuntu). Install it with: sudo apt-get install dpkg-dev)`
@@ -98,8 +115,12 @@ The plugin will then inject/merge the `Depends:` line into the newly created `.d
 - Error: `.deb directory not found` or `No .deb file found`
   - Ensure you ran the packaging task first (e.g., `./gradlew packageDeb`).
   - Confirm the directory matches your variant. For release: `build/compose/binaries/main-release/deb`.
+- Dock/taskbar icon is missing or not matched on GNOME/KDE
+  - Set `startupWMClass` to your application’s WM class (default is `MainClassKt`).
+  - The plugin updates `.desktop` files even when `debDepends` is empty, so you can use it just for this fix.
+  - Tip: You can inspect your window’s class with tools like `xprop` (look for `WM_CLASS`).
 - Nothing happens / no changes in .deb
-  - Check that `linuxDebConfig.debDepends` is not empty.
+  - Check that `linuxDebConfig.debDepends` is not empty if you expect dependency changes, otherwise only the `.desktop` fix will apply.
 
 ## Limitations
 - Currently supports Debian `.deb` only. RPM support can be added in the future.

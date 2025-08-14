@@ -33,6 +33,7 @@ class PluginTest {
             debDepends.set(listOf("libqt5widgets5t64", "libx11-6"))
             debDirectory.set(tmpDebDir)
             packageTaskNames.set(listOf("packageDeb", "packageReleaseDeb"))
+            startupWMClass.set("CustomMainClass")
         }
 
         val debTask = project.tasks.getByName("debInjectDependsPackageDeb") as DebInjectDependsTask
@@ -45,5 +46,9 @@ class PluginTest {
         // release task enforces main-release directory
         val expectedReleaseDir = File(project.buildDir, "compose/binaries/main-release/deb")
         Assert.assertEquals(expectedReleaseDir, releaseTask.debDirectory.get().asFile)
+
+        // StartupWMClass should be propagated to both tasks
+        Assert.assertEquals("CustomMainClass", debTask.startupWMClass.get())
+        Assert.assertEquals("CustomMainClass", releaseTask.startupWMClass.get())
     }
 }
