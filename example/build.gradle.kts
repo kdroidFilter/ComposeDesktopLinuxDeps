@@ -1,8 +1,8 @@
 plugins {
     java
-    id("com.ncorti.kotlin.gradle.template.plugin")
+    id("io.github.kdroidfilter.compose.linux.packagedeps")
 }
 
-templateExampleConfig {
-    message.set("Just trying this gradle plugin...")
+linuxDebConfig {
+    debDepends.set(listOf("libqt5widgets5t64"))
 }
