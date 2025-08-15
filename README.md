@@ -23,7 +23,6 @@ plugins {
 
 linuxDebConfig {
     debDepends.set(listOf("libqt5widgets5t64", "libx11-6"))
-    // Optional: fix dock icon matching
     startupWMClass.set("MainClassKt")
 }
 ```
