@@ -5,7 +5,7 @@ Bonus: can write `StartupWMClass` into `.desktop` files to fix dock/taskbar icon
 
 ## Plugin
 
-* **ID:** `io.github.kdroidfilter.compose.linux.package-deps`
+* **ID:** `io.github.kdroidfilter.compose.linux.packagedeps`
 * **Version:** `0.1.0`
 
 ## Requirements
@@ -18,7 +18,7 @@ Bonus: can write `StartupWMClass` into `.desktop` files to fix dock/taskbar icon
 ```kotlin
 // build.gradle.kts
 plugins {
-    id("io.github.kdroidfilter.compose.linux.package-deps") version "0.1.0"
+    id("io.github.kdroidfilter.compose.linux.packagedeps") version "0.1.0"
 }
 
 linuxDebConfig {
