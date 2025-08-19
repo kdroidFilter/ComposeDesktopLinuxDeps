@@ -19,6 +19,7 @@ abstract class LinuxDebConfigPlugin : Plugin<Project> {
             task.description = "Inject Debian Depends into jpackage-generated .deb (packageDeb)"
             task.debDepends.set(extension.debDepends)
             task.startupWMClass.set(extension.startupWMClass)
+            task.enableT64AlternativeDeps.set(extension.enableT64AlternativeDeps)
             // main variant keeps using the extension-configured directory (defaults to main)
             task.debDirectory.set(extension.debDirectory)
         }
@@ -28,6 +29,7 @@ abstract class LinuxDebConfigPlugin : Plugin<Project> {
             task.description = "Inject Debian Depends into jpackage-generated .deb (packageReleaseDeb)"
             task.debDepends.set(extension.debDepends)
             task.startupWMClass.set(extension.startupWMClass)
+            task.enableT64AlternativeDeps.set(extension.enableT64AlternativeDeps)
             // release variant must use main-release directory
             task.debDirectory.set(releaseDir)
         }
