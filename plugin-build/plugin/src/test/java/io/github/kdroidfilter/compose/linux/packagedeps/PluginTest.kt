@@ -34,6 +34,7 @@ class PluginTest {
             debDirectory.set(tmpDebDir)
             packageTaskNames.set(listOf("packageDeb", "packageReleaseDeb"))
             startupWMClass.set("CustomMainClass")
+            enableT64AlternativeDeps.set(true)
         }
 
         val debTask = project.tasks.getByName("debInjectDependsPackageDeb") as DebInjectDependsTask
@@ -50,5 +51,9 @@ class PluginTest {
         // StartupWMClass should be propagated to both tasks
         Assert.assertEquals("CustomMainClass", debTask.startupWMClass.get())
         Assert.assertEquals("CustomMainClass", releaseTask.startupWMClass.get())
+
+        // T64 alternative deps flag should propagate to both tasks
+        Assert.assertTrue(debTask.enableT64AlternativeDeps.get())
+        Assert.assertTrue(releaseTask.enableT64AlternativeDeps.get())
     }
 }

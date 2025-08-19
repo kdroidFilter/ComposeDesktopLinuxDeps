@@ -26,6 +26,9 @@ abstract class DebInjectDependsTask : DefaultTask() {
     @get:Input
     abstract val startupWMClass: Property<String>
 
+    @get:Input
+    abstract val enableT64AlternativeDeps: Property<Boolean>
+
     @get:InputDirectory
     abstract val debDirectory: DirectoryProperty
 
@@ -33,7 +36,8 @@ abstract class DebInjectDependsTask : DefaultTask() {
     fun injectDepends() {
         ensureDpkgDebAvailable()
 
-        val deps = debDepends.getOrElse(emptyList())
+        val baseDeps = debDepends.getOrElse(emptyList())
+        val deps = baseDeps
         val debFile = findLatestDeb(debDirectory.get().asFile)
         val workDir = extractDebToWorkDir(debFile)
 
@@ -73,31 +77,43 @@ abstract class DebInjectDependsTask : DefaultTask() {
     }
 
     private fun updateControlDependsIfNeeded(workDir: File, debFile: File, deps: List<String>) {
-        if (deps.isEmpty()) {
-            logger.lifecycle("No Debian dependencies configured (debDepends is empty). Skipping Depends injection.")
-            return
-        }
         val controlFile = File(workDir, "DEBIAN/control")
         if (!controlFile.exists()) error("Control file not found in extracted package: ${controlFile.absolutePath}")
 
-        val controlText = controlFile.readText()
-        val dependsLine = "Depends: " + deps.joinToString(", ")
+        var controlText = controlFile.readText()
+        var changedByRewrite = false
 
-        val newControl = if (Regex("^Depends:", RegexOption.MULTILINE).containsMatchIn(controlText)) {
-            controlText.replace(Regex("^Depends:\\s*(.*)$", RegexOption.MULTILINE)) { m ->
-                val existing = m.groupValues[1]
-                    .split(',')
-                    .map { it.trim() }
-                    .filter { it.isNotEmpty() }
-                    .toMutableSet()
-                existing.addAll(deps)
-                "Depends: " + existing.joinToString(", ")
+        if (enableT64AlternativeDeps.getOrElse(false)) {
+            val rewritten = rewriteExistingT64Alternatives(controlText)
+            if (rewritten != controlText) {
+                controlText = rewritten
+                changedByRewrite = true
             }
-        } else {
-            controlText.trimEnd() + "\n" + dependsLine + "\n"
         }
-        controlFile.writeText(newControl)
-        logger.lifecycle("✅ Injected Debian Depends into ${debFile.name}: $dependsLine")
+
+        if (deps.isNotEmpty()) {
+            val dependsLine = "Depends: " + deps.joinToString(", ")
+            val newControl = if (Regex("^Depends:", RegexOption.MULTILINE).containsMatchIn(controlText)) {
+                controlText.replace(Regex("^Depends:\\s*(.*)$", RegexOption.MULTILINE)) { m ->
+                    val existing = m.groupValues[1]
+                        .split(',')
+                        .map { it.trim() }
+                        .filter { it.isNotEmpty() }
+                        .toMutableSet()
+                    existing.addAll(deps)
+                    "Depends: " + existing.joinToString(", ")
+                }
+            } else {
+                controlText.trimEnd() + "\n" + dependsLine + "\n"
+            }
+            controlFile.writeText(newControl)
+            logger.lifecycle("✅ Injected Debian Depends into ${debFile.name}: $dependsLine")
+        } else if (changedByRewrite) {
+            controlFile.writeText(controlText)
+            logger.lifecycle("✅ Rewrote existing t64 dependencies in ${debFile.name} Depends line for compatibility")
+        } else {
+            logger.lifecycle("No Debian dependencies configured and no rewrite needed; leaving control file unchanged.")
+        }
     }
 
     private fun updateDesktopStartupWMClass(workDir: File, wmClassRaw: String) {
@@ -143,5 +159,54 @@ abstract class DebInjectDependsTask : DefaultTask() {
         cmd.add(debFile.absolutePath)
         execOperations.exec { execSpec -> execSpec.commandLine(cmd) }
         logger.lifecycle("✅ Repacked ${debFile.name} with updated metadata")
+    }
+
+    private fun rewriteExistingT64Alternatives(controlText: String): String {
+        val dependsRegex = Regex("^Depends:\\s*(.*)$", RegexOption.MULTILINE)
+        if (!dependsRegex.containsMatchIn(controlText)) return controlText
+        return controlText.replace(dependsRegex) { m ->
+            val line = m.groupValues[1]
+            val updated = rewriteDependsLineItems(line)
+            "Depends: $updated"
+        }
+    }
+
+    private fun rewriteDependsLineItems(depLine: String): String {
+        val items = depLine.split(',')
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+        val updated = items.map { item ->
+            if (item.contains('|')) {
+                // Already an alternative dependency; do not alter ordering or versions
+                item
+            } else {
+                // Handle t64 variants first -> add alternative with non-t64
+                val asoundT64 = Regex("^libasound2t64(\\s*\\([^)]+\\))?$").matchEntire(item)
+                if (asoundT64 != null) {
+                    val ver = asoundT64.groupValues.getOrNull(1).orEmpty()
+                    "libasound2t64$ver | libasound2"
+                } else {
+                    val pngT64 = Regex("^libpng16-16t64(\\s*\\([^)]+\\))?$").matchEntire(item)
+                    if (pngT64 != null) {
+                        val ver = pngT64.groupValues.getOrNull(1).orEmpty()
+                        "libpng16-16t64$ver | libpng16-16"
+                    } else {
+                        // Handle non-t64 variants -> normalize to alternative with t64 first
+                        val asound = Regex("^libasound2(\\s*\\([^)]+\\))?$").matchEntire(item)
+                        if (asound != null) {
+                            val ver = asound.groupValues.getOrNull(1).orEmpty()
+                            "libasound2t64$ver | libasound2"
+                        } else {
+                            val png = Regex("^libpng16-16(\\s*\\([^)]+\\))?$").matchEntire(item)
+                            if (png != null) {
+                                val ver = png.groupValues.getOrNull(1).orEmpty()
+                                "libpng16-16t64$ver | libpng16-16"
+                            } else item
+                        }
+                    }
+                }
+            }
+        }
+        return updated.joinToString(", ")
     }
 }
