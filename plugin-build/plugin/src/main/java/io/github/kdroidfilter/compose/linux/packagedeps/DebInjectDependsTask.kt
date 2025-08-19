@@ -183,23 +183,23 @@ abstract class DebInjectDependsTask : DefaultTask() {
                 // Handle t64 variants first -> add alternative with non-t64
                 val asoundT64 = Regex("^libasound2t64(\\s*\\([^)]+\\))?$").matchEntire(item)
                 if (asoundT64 != null) {
-                    val ver = asoundT64.groupValues.getOrNull(1) ?: ""
+                    val ver = asoundT64.groupValues.getOrNull(1).orEmpty()
                     "libasound2t64$ver | libasound2"
                 } else {
                     val pngT64 = Regex("^libpng16-16t64(\\s*\\([^)]+\\))?$").matchEntire(item)
                     if (pngT64 != null) {
-                        val ver = pngT64.groupValues.getOrNull(1) ?: ""
+                        val ver = pngT64.groupValues.getOrNull(1).orEmpty()
                         "libpng16-16t64$ver | libpng16-16"
                     } else {
                         // Handle non-t64 variants -> normalize to alternative with t64 first
                         val asound = Regex("^libasound2(\\s*\\([^)]+\\))?$").matchEntire(item)
                         if (asound != null) {
-                            val ver = asound.groupValues.getOrNull(1) ?: ""
+                            val ver = asound.groupValues.getOrNull(1).orEmpty()
                             "libasound2t64$ver | libasound2"
                         } else {
                             val png = Regex("^libpng16-16(\\s*\\([^)]+\\))?$").matchEntire(item)
                             if (png != null) {
-                                val ver = png.groupValues.getOrNull(1) ?: ""
+                                val ver = png.groupValues.getOrNull(1).orEmpty()
                                 "libpng16-16t64$ver | libpng16-16"
                             } else item
                         }
