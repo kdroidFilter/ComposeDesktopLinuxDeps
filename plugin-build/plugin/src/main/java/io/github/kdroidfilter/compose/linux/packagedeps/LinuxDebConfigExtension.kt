@@ -37,4 +37,21 @@ abstract class LinuxDebConfigExtension @Inject constructor(project: Project) {
         // libpng16-16t64 -> "libpng16-16t64 | libpng16-16"
         enableT64AlternativeDeps.convention(false)
     }
+
+    /**
+     * Convenience method to add dependencies required by compose-desktop-tray (Qt5 + dbusmenu).
+     * Always adds the t64-first alternatives for better cross-distro compatibility.
+     *
+     * You can still fully override with: debDepends.set(listOf("..."))
+     */
+    fun addComposeNativeTrayDeps() {
+        debDepends.addAll(
+            listOf(
+                "libqt5core5t64 | libqt5core5a",
+                "libqt5gui5t64 | libqt5gui5",
+                "libqt5widgets5t64 | libqt5widgets5",
+                "libdbusmenu-qt5-2"
+            )
+        )
+    }
 }
