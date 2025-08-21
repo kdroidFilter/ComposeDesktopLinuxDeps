@@ -35,7 +35,7 @@ abstract class DebInjectDependsTask : DefaultTask() {
     @TaskAction
     fun injectDepends() {
         // No-op on non-Linux hosts to provide a safe fallback
-        val osName = System.getProperty("os.name") ?: ""
+        val osName = System.getProperty("os.name").orEmpty()
         val isLinux = osName.lowercase().contains("linux")
         if (!isLinux) {
             logger.lifecycle("Host OS is not Linux (detected: '$osName'). Skipping Debian dependency injection task.")
