@@ -2,6 +2,7 @@ package io.github.kdroidfilter.compose.linux.packagedeps
 
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.file.ProjectLayout
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
@@ -14,6 +15,8 @@ import javax.inject.Inject
 abstract class DebInjectDependsTask : DefaultTask() {
     @get:Inject
     protected abstract val execOperations: ExecOperations
+    @get:Inject
+    protected abstract val layout: ProjectLayout
 
     init {
         description = "Inject Debian Depends into jpackage-generated .deb files"
@@ -83,7 +86,7 @@ abstract class DebInjectDependsTask : DefaultTask() {
     }
 
     private fun extractDebToWorkDir(debFile: File): File {
-        val workDir = project.layout.buildDirectory.dir("deb-edit").get().asFile
+        val workDir = layout.buildDirectory.dir("deb-edit").get().asFile
         workDir.deleteRecursively()
         workDir.mkdirs()
         execOperations.exec { execSpec ->
