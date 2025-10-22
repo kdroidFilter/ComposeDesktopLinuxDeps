@@ -29,7 +29,10 @@ abstract class DebInjectDependsTask : DefaultTask() {
     @get:Input
     abstract val enableT64AlternativeDeps: Property<Boolean>
 
-    @get:InputDirectory
+    // Mark as internal to avoid Gradle input validation on hosts or builds
+    // where the directory doesn't exist (e.g., macOS/Windows or before packaging).
+    // We perform existence checks at runtime and skip gracefully.
+    @get:org.gradle.api.tasks.Internal
     abstract val debDirectory: DirectoryProperty
 
     @TaskAction
@@ -46,7 +49,12 @@ abstract class DebInjectDependsTask : DefaultTask() {
 
         val baseDeps = debDepends.getOrElse(emptyList())
         val deps = baseDeps
-        val debFile = findLatestDeb(debDirectory.get().asFile)
+        val dir = debDirectory.get().asFile
+        if (!dir.exists()) {
+            logger.lifecycle("No .deb directory found at: ${dir.absolutePath}. Skipping injection. Run './gradlew packageDeb' first if packaging.")
+            return
+        }
+        val debFile = findLatestDeb(dir)
         val workDir = extractDebToWorkDir(debFile)
 
         updateControlDependsIfNeeded(workDir, debFile, deps)

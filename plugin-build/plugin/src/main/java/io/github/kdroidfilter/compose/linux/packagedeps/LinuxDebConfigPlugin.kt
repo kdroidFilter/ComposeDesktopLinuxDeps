@@ -10,6 +10,7 @@ const val TASK_NAME_RELEASE = "debInjectDependsPackageReleaseDeb"
 @Suppress("UnnecessaryAbstractClass")
 abstract class LinuxDebConfigPlugin : Plugin<Project> {
     override fun apply(project: Project) {
+        val isLinux = System.getProperty("os.name").orEmpty().lowercase().contains("linux")
         // Create plugin extension with configurable properties
         val extension = project.extensions.create(EXTENSION_NAME, LinuxDebConfigExtension::class.java, project)
 
@@ -22,6 +23,8 @@ abstract class LinuxDebConfigPlugin : Plugin<Project> {
             task.enableT64AlternativeDeps.set(extension.enableT64AlternativeDeps)
             // main variant keeps using the extension-configured directory (defaults to main)
             task.debDirectory.set(extension.debDirectory)
+            // Gate execution on Linux hosts only
+            task.onlyIf { isLinux }
         }
         val releaseDir = project.layout.buildDirectory.dir("compose/binaries/main-release/deb")
         val injectReleaseTask = project.tasks.register(TASK_NAME_RELEASE, DebInjectDependsTask::class.java) { task ->
@@ -32,6 +35,8 @@ abstract class LinuxDebConfigPlugin : Plugin<Project> {
             task.enableT64AlternativeDeps.set(extension.enableT64AlternativeDeps)
             // release variant must use main-release directory
             task.debDirectory.set(releaseDir)
+            // Gate execution on Linux hosts only
+            task.onlyIf { isLinux }
         }
 
         // Hook automatically: run after the corresponding packaging tasks (avoid dependsOn to prevent loops)
