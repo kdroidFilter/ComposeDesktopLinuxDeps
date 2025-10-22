@@ -8,6 +8,7 @@ import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputDirectory
 import org.gradle.api.tasks.TaskAction
+import org.gradle.api.tasks.Optional
 import org.gradle.process.ExecOperations
 import java.io.File
 import javax.inject.Inject
@@ -31,6 +32,16 @@ abstract class DebInjectDependsTask : DefaultTask() {
 
     @get:Input
     abstract val enableT64AlternativeDeps: Property<Boolean>
+
+    // Optional display name to write into .desktop files (supports Unicode)
+    @get:Input
+    @get:Optional
+    abstract val desktopDisplayName: Property<String>
+
+    // Basename of the jpackage args file (e.g., "packageDeb" or "packageReleaseDeb") to locate
+    // sidecar files produced by the prepare step.
+    @get:Input
+    abstract val jpackageArgsBaseName: Property<String>
 
     // Mark as internal to avoid Gradle input validation on hosts or builds
     // where the directory doesn't exist (e.g., macOS/Windows or before packaging).
@@ -62,6 +73,7 @@ abstract class DebInjectDependsTask : DefaultTask() {
 
         updateControlDependsIfNeeded(workDir, debFile, deps)
         updateDesktopStartupWMClass(workDir, startupWMClass.getOrElse("MainClassKt"))
+        updateDesktopDisplayNameIfProvided(workDir)
 
         repackDeb(workDir, debFile)
     }
@@ -73,6 +85,39 @@ abstract class DebInjectDependsTask : DefaultTask() {
         }
         if (result.exitValue != 0) {
             error("dpkg-deb is required (Debian/Ubuntu). Install it with: sudo apt-get install dpkg-dev")
+        }
+    }
+
+    private fun updateDesktopDisplayNameIfProvided(workDir: File) {
+        val provided = desktopDisplayName.orNull?.takeIf { it.isNotBlank() }
+        val fromFile = runCatching {
+            val base = jpackageArgsBaseName.orNull
+            if (base.isNullOrBlank()) null
+            else {
+                val tmpDir = layout.buildDirectory.dir("compose/tmp").get().asFile
+                val f = File(tmpDir, "$base.original-name.txt")
+                if (f.exists()) f.readText().trim().ifBlank { null } else null
+            }
+        }.getOrNull()
+        val display = provided ?: fromFile
+        if (display.isNullOrBlank()) return
+
+        val desktopFiles = workDir.walkTopDown().filter { it.isFile && it.name.endsWith(".desktop") }.toList()
+        if (desktopFiles.isEmpty()) return
+        desktopFiles.forEach { file ->
+            val original = file.readText()
+            val hasKey = Regex("^Name=", RegexOption.MULTILINE).containsMatchIn(original)
+            val updated = if (hasKey) {
+                original.replace(Regex("^Name=.*$", RegexOption.MULTILINE), "Name=$display")
+            } else if (original.contains("[Desktop Entry]")) {
+                original.replaceFirst("[Desktop Entry]", "[Desktop Entry]\nName=$display")
+            } else {
+                original.trimEnd() + "\nName=$display\n"
+            }
+            if (updated != original) {
+                file.writeText(updated)
+                logger.lifecycle("✅ Updated .desktop Name in ${file.relativeTo(workDir)} -> $display")
+            }
         }
     }
 

@@ -23,6 +23,7 @@ abstract class LinuxDebConfigPlugin : Plugin<Project> {
             task.enableT64AlternativeDeps.set(extension.enableT64AlternativeDeps)
             // main variant keeps using the extension-configured directory (defaults to main)
             task.debDirectory.set(extension.debDirectory)
+            task.jpackageArgsBaseName.set("packageDeb")
             // Gate execution on Linux hosts only
             task.onlyIf { isLinux }
         }
@@ -35,16 +36,29 @@ abstract class LinuxDebConfigPlugin : Plugin<Project> {
             task.enableT64AlternativeDeps.set(extension.enableT64AlternativeDeps)
             // release variant must use main-release directory
             task.debDirectory.set(releaseDir)
+            task.jpackageArgsBaseName.set("packageReleaseDeb")
             // Gate execution on Linux hosts only
             task.onlyIf { isLinux }
         }
 
-        // Hook automatically: run after the corresponding packaging tasks (avoid dependsOn to prevent loops)
+        // Prepare jpackage args before packaging to ensure Debian-compliant names and capture display name
+        val prepareDeb = project.tasks.register("prepareJpackageArgsDeb", PrepareJpackageArgsTask::class.java) { t ->
+            t.argsBaseName.set("packageDeb")
+            t.onlyIf { isLinux }
+        }
+        val prepareReleaseDeb = project.tasks.register("prepareJpackageArgsReleaseDeb", PrepareJpackageArgsTask::class.java) { t ->
+            t.argsBaseName.set("packageReleaseDeb")
+            t.onlyIf { isLinux }
+        }
+
+        // Hook automatically: run sanitize -> packaging -> inject
         project.afterEvaluate {
             project.tasks.matching { it.name == "packageDeb" }.configureEach { pkg ->
+                pkg.dependsOn(prepareDeb)
                 pkg.finalizedBy(injectDebTask)
             }
             project.tasks.matching { it.name == "packageReleaseDeb" }.configureEach { pkg ->
+                pkg.dependsOn(prepareReleaseDeb)
                 pkg.finalizedBy(injectReleaseTask)
             }
         }
